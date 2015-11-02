@@ -1,6 +1,38 @@
 #include <stdint.h>
 #include <avr/io.h>
 
+/* This function does not require the ADC to be initialized beforehand.
+ * It takes about 75us to run the first time, and 50uS every time after that.
+ */
+uint8_t adc_sample( uint8_t channel ) {
+	channel = (channel & 0x1F) | 0x20; // sanitize the input
+	if( channel != ADMUX ) { 		// if it's not already the right channel
+		while( ADCSRA & 0x40 );	// wait for the current conversion to complete
+		ADMUX = channel;			// set the right channel
+	}
+	ADCSRA = 0xC0;			// start the conversion!
+	while( ADCSRA & 0x40 );	// wait for the conversion
+	return ADCH;
+}
+
+/* This is the same as adc_sample, but it returns a 10-bit result instead.
+ * Because of the higher resolution, it runs a at a slower clock speed
+ * It takes about 225uS the first time, and 130uS every time after that.
+ */
+uint16_t adc_sample10( uint8_t channel ) {
+	uint16_t result = 0;
+	channel = (channel & 0x1F); // sanitize the input
+	if( channel != ADMUX ) { 		// if it's not already the right channel
+		while( ADCSRA & 0x40 );	// wait for the current conversion to complete
+		ADMUX = channel;			// set the right channel
+	}
+	ADCSRA = 0xC3;			// start the conversion!
+	while( ADCSRA & 0x40 );	// wait for the conversion
+	result = ADCL;
+	result |= ADCH<<8;
+	return result;
+}
+
 
 #define F_CPU 1000000UL // 1MHz
 #include <util/delay.h>
@@ -93,16 +125,24 @@ uint16_t my_log2( uint16_t x ) {
 
 
 int main( void ) {
-	uint16_t i = 13<<7;
-	DDRA = 0x00;
-	DDRB = 0x02;
+	DDRA = 0x00;	// All of Port A is inputs
+	DIDR0 = 0xC0;	// disable digital input buffers on pA6 and pA7
+	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
+	
+	TCCR1A = 0x53; //PWM on OCR1A, and OCR1B with inverted and non-inverted output
+	TCCR1B = 0x01;	// prescaler of 1
+	TCCR1D = 0x01;	// Fast PWM
+	PLLCSR = 0x02;	// Enable fast PLL (64 Mhz)
 	
 	while(1) {
-		for( int j = 0; j < my_log2( i ); ++j ) {
-			_delay_ms(  0.02 );
-		}
-		PINB = 0x02; // toggle pin 2 of port B.
-		--i;
+		_delay_ms(0.1);
+		PORTB = 0x10;
+		OCR1A = adc_sample(5);	// read the voltage off pA6
+		PORTB = 0x00;
+		_delay_ms(0.1);
+		PORTB = 0x10;
+		OCR1B = adc_sample(6); // read the voltage off pA7
+		PORTB = 0x00;
 	}
 
 	return 0;
