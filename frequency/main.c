@@ -1,5 +1,25 @@
 #include <stdint.h>
 #include <avr/io.h>
+#include <avr/interrupt.h>
+
+#define F_CPU 1000000UL // 1MHz
+#include <util/delay.h>
+
+#define PRETEND_INPUTS
+
+/* GLOBAL VARIABLES */
+uint16_t period1= 0x4000;
+uint16_t period2 = 0x4000;
+char period_state = 0;
+uint8_t period_counter = 0;
+
+#define FOFFSET 132	// This calibrates the frequency generator
+
+uint8_t background_level = 0;
+uint8_t pedal_level = 0;
+
+
+/* FUNCTIONS */
 
 /* This function does not require the ADC to be initialized beforehand.
  * It takes about 75us to run the first time, and 50uS every time after that.
@@ -33,9 +53,6 @@ uint16_t adc_sample10( uint8_t channel ) {
 	return result;
 }
 
-
-#define F_CPU 1000000UL // 1MHz
-#include <util/delay.h>
 
 
 /* This function approximates logarithmic decay using linear programming.
@@ -95,26 +112,78 @@ uint16_t my_log2( uint16_t x ) {
 	return result;
 }
 
+ISR( TIMER0_COMPA_vect ) {
+	++period_counter;
+	if( period_counter & 64 ){
+		period_counter = 0;
+		/* Toggle the output */
+		period_state = !period_state;
+		if( period_state ) {
+			PORTB = 0;
+			OCR1A = pedal_level;
+			OCR0B = period1 >> 8;
+			OCR0A = period1;
+		} else {
+			PORTB = 0x10;
+			OCR1A = background_level;
+			OCR0B = period2 >> 8;
+			OCR0A = period2;
+		}
+	}
+	
+	/* Reset the timer */
+	TCNT0H = 0;
+	TCNT0L = 0;
+}
+
+ISR( BADISR_vect ) {
+	//catch anything we accidentally enabled
+}
+
 
 int main( void ) {
+	uint16_t fknob = 0;
+	uint16_t dknob = 0;
+	uint32_t total_period = 0;
+	
+	/* PORT SETUP */
 	DDRA = 0x00;	// All of Port A is inputs
 	DIDR0 = 0xC0;	// disable digital input buffers on pA6 and pA7
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
 	
-	TCCR1A = 0x53; //PWM on OCR1A, and OCR1B with inverted and non-inverted output
-	TCCR1B = 0x01;	// prescaler of 1
-	TCCR1D = 0x01;	// Fast PWM
-	PLLCSR = 0x02;	// Enable fast PLL (64 Mhz)
+	/* PWM SETUP */
+	TCCR1A = 0x42; //PWM on OCR1A, with inverted and non-inverted output
+	TCCR1B = 0x01; 	// prescaler of 1
+	TCCR1D = 0x01; 	// Fast PWM
+	PLLCSR = 0x02; 	// Enable fast PLL (64 Mhz)
+	
+	
+	/* FREQUENCY SETUP */
+	TCCR0A = 0x80; 	// 16 bit timer, normal mode
+	TCCR0B = 0x01;	// precaler of 1x system clock
+	TIMSK = 0x10;		// enable interrupt for OCR0A
+	OCR0B = 10;
+	OCR0A = 0;
+	sei();
 	
 	while(1) {
-		_delay_ms(0.1);
-		PORTB = 0x10;
-		OCR1A = adc_sample(5);	// read the voltage off pA6
-		PORTB = 0x00;
-		_delay_ms(0.1);
-		PORTB = 0x10;
-		OCR1B = adc_sample(6); // read the voltage off pA7
-		PORTB = 0x00;
+		dknob = adc_sample10(6);
+		fknob = adc_sample10(5) + FOFFSET;
+		
+		total_period = my_log2( fknob );
+		period1 = (total_period * dknob) >> 10;
+		if( period1 == 0 ) period1 = 1; // special case
+		period2 = total_period - period1;
+		
+		#ifdef PRETEND_INPUTS
+		background_level = 10;
+		pedal_level = 90;
+		#else
+		background_level = adc_sample(0);
+		pedal_level = adc_sample(1);
+		#endif
+		
+		
 	}
 
 	return 0;
