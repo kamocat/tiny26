@@ -38,34 +38,6 @@ uint16_t adc_sample10( uint8_t channel ) {
 #include <util/delay.h>
 
 
-
-/* This function should return the result of (period * portion / 1024).
- * The point is to do that without using 32 bit integers, so it is more
- * effecient on an 8 bit microcontroller.
- * 
- * portion expects a value between 0 and 1023.
- * period expects a value between 0 and 65535.
- * Output should be between 0 and 65535.
- */
-uint16_t scale( uint16_t period, uint16_t portion ) {
-	uint16_t result;
-	portion &= 0x3F;	//trim off top
-	if( period < (1<<6))
-		result = (period * portion) >> 10;
-	else if( period < (1<<8) )
-		result = ((period>>2) * portion) >> 8;
-	else if( period < (1<<10) )
-		result = ((period>>4) * portion) >> 6;
-	else if( period < (1<<12) )
-		result = ((period>>6) * portion) >> 4;
-	else if( period < (1<<14) )
-		result = ((period>>8) * portion) >> 2;
-	else
-		result = (period>>10) * portion;
-	return result;
-}
-
-
 /* This function approximates logarithmic decay using linear programming.
  * The idea is to have a reasonable model without intensive computation.
  * Floating-point math would be a bad idea here, but I even went to the extent
