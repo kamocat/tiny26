@@ -20,7 +20,7 @@ clean:
 	rm -f *.o
 
 
-AVRFLAGS= -pt861 -Pusb -cusbtiny
+AVRFLAGS= -pt861 -Pusb -cusbasp
 
 run: flash
 
