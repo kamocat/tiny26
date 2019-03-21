@@ -18,13 +18,15 @@ volatile enum i2c_state{
 	ack_data	// Send data next
 }i2c_state;
 
-int8_t farenheight;
+uint16_t adc_val;
+volatile uint8_t tx_index;
 volatile uint8_t blink_period = 50;
 
 /* Interrupts for I2C */
 ISR( USI_START_vect ){
 	PORTB &= ~1;	// Set pin B0 low
 	i2c_state = rx_address;	// Next we're receiving an address
+	tx_index = 0;
 	while( PINA & 4 );	// Wait for SCL input to fall
 	USIDR = 0xFF;	// Clear the send buffer
 	USISR = 1<<USISIF | 1<<USIOIF;	// Release the bus and clear the timer
@@ -54,7 +56,11 @@ ISR( USI_OVF_vect ){
 				i2c_state = idle;
 			} else {
 				// Master ACK'd. Send more data.
-				USIDR = farenheight;
+				if( tx_index & 1)
+					USIDR = adc_val;	// Send low byte
+				else
+					USIDR = adc_val>>8;	// send high byte
+				++tx_index;
 				i2c_state = tx_data;
 			}
 			break;
@@ -167,10 +173,11 @@ int main( void ) {
 	
 	
 	while(1) {
-		farenheight = adc_sample( 6 );	// Pin A7
-		_delay_ms( 500 );
-		PORTB ^= 1<<4;	// Toggle pin 4 on PORTB
-		
+		uint16_t sum = 0;
+		for( uint8_t i = 0; i < 64; ++i ){
+			sum += adc_sample10( 5 );	// Pin A6
+		}
+		adc_val = sum;
 	}
 
 	return 0;
