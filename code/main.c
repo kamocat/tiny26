@@ -5,12 +5,102 @@
 #define F_CPU 1000000UL // 1MHz
 #include <util/delay.h>
 
+/* Global Variables */
+#define ADDRESS_MASK 0xFE	// lsb is R/W
+#define I2C_ADDRESS (0xCA & ADDRESS_MASK)	// Already shifted
 
-/* PWM for BLUE ESC goes from 1.1ms to 1.9ms, centered at 1.5ms */
-#define PWM_CENTER 384
+volatile enum i2c_state{
+	idle,
+	rx_address,
+	rx_command,
+	ack_command,	// Receive a command next
+	tx_data,
+	ack_data	// Send data next
+}i2c_state;
+
+int8_t farenheight;
+volatile uint8_t blink_period = 50;
+
+/* Interrupts for I2C */
+ISR( USI_START_vect ){
+	USIDR = 0xFF;	// Clear the send buffer
+	i2c_state = rx_address;	// Next we're receiving an address
+	USISR = 1<<USISIF;	// Release the bus and clear the timer
+}
+
+ISR( USI_OVF_vect ){
+	switch( i2c_state ){
+		case rx_address:
+			// Compare to our address
+			if( (USIBR & ADDRESS_MASK) == I2C_ADDRESS ){
+				USIDR = 0x7F;	// Send ACK
+				// 1 means read, 0 means write
+				i2c_state = USIBR&1 ? ack_data: ack_command;
+				USISR = 14;	// Set the clock to overflow after the ACK
+			} else {
+				// It's not our address
+				i2c_state = idle;
+				USIDR = 0xFF;	// Don't send data
+			}
+			break;
+		case ack_data:
+			if( USIBR & 1 ){
+				// Master NACK'd. Release data line.
+				USIDR = 0xFF;
+				i2c_state = idle;
+			} else {
+				// Master ACK'd. Send more data.
+				USIDR = farenheight;
+				i2c_state = tx_data;
+			}
+			break;
+		case ack_command:
+			/* Get ready to receive data */
+			USIDR = 0xFF;
+			i2c_state = rx_command;
+			break;
+		case tx_data:
+			/* Finished sending data. Wait for an ACK */
+			USIDR = 0xFF;
+			USISR = 14;	// Set to overflow after ack
+			i2c_state = ack_data;
+			break;
+		case rx_command:
+			/* We received a command. Always ACK. */
+			OCR1C = USIBR;	// Copy data to PWM period
+			USIDR = 0xEF;
+			USISR = 14;
+			i2c_state = ack_command;
+			break;
+		default:
+		case idle:
+			USIDR = 0xFF;	// Clear the send buffer
+			break;
+
+	}
+	USISR |= 1<<USIOIF;	// Release the bus
+}
 
 
 /* FUNCTIONS */
+
+void init_i2c( void ){
+	/* Set up USI for i2c slave:
+	 * Enable start-bit interrupt
+	 * Hold line low on start condition
+	 * Hold line low on timer overflow
+	 * Clock output on rising edge
+	 */
+	USICR = 1<<USISIE | 1<<USIOIE | 1<<USIWM1 | 1<<USIWM0 |
+		1<<USICS1 | 0<<USICS0;
+
+	// Enable outputs for SCL and SDA
+	PORTA |= 1<<0 | 1<<2;
+	DDRA |= 1<<0 | 1<<2;
+	USIPP = 1;	// Use PORTA, not PORTB
+
+	i2c_state = idle;
+}
 
 /* This function does not require the ADC to be initialized beforehand.
  * It takes about 75us to run the first time, and 50uS every time after that.
@@ -49,45 +139,27 @@ ISR( BADISR_vect ) {
 	//catch anything we accidentally enabled
 }
 
-#define DEBUG 1
 int main( void ) {
 	
-	int16_t volts = 0;
-	uint16_t pwm = PWM_CENTER;
-	
 	/* PORT SETUP */
-	DDRA = 0x00;	// All of Port A is inputs
+	DDRA = 0x05;	// SCL and SDA on PORTA are outputs
 	DIDR0 = 0xF0;	// disable digital input buffers on pA5 through pA7
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
+
+	/* Set up PWM to show we're receiving commands */
+	TCCR1B = 11;	// Prescaler of 1024
+	TCCR1C = 1<<COM1D0;	// Toggle output on compare match
+	TCCR1D = 0;	// Normal mode, use OCR1C as TOP
+	OCR1D = 0;	// Always toggle
+	OCR1C = 50;	// Good starting point
+
+	init_i2c();
 	
-	#if DEBUG == 2
-	/* PWM SETUP */
-	TCCR1A = 0x11; //PWM on OCR1B, with inverted and non-inverted output
-	TCCR1B = 0x01; 	// prescaler of 1
-	TCCR1D = 0x00; 	// Fast PWM
-	PLLCSR = 0x02; 	// Enable fast PLL (64 Mhz)
-	#elif DEBUG == 1
-	
-	/* PWM SETUP */
-	TCCR1A = 0x82; 	//PWM on OCR1A, with non-inverted output
-	TCCR1B = 0x03; 	// prescaler of 4
-	TCCR1D = 0x00; 	// Fast PWM
-	TC1H = 0x03;
-	OCR1C = 0xFF;		// Set TOP to max value
-	#endif
 	
 	while(1) {
-
-		#if DEBUG == 1
-		volts = adc_sample(0);
-		pwm = PWM_CENTER + (128 - volts);
-		TC1H = pwm>>8;
-		OCR1A = pwm;
-		#else
-		/* Simple blinking light */
-		PINB = 0x08;
+		farenheight = adc_sample( 6 );	// Pin A7
 		_delay_ms( 500 );
-		#endif
+		PORTB ^= 1<<4;	// Toggle pin 4 on PORTB
 		
 	}
 
