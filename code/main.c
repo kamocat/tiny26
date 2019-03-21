@@ -23,17 +23,21 @@ volatile uint8_t blink_period = 50;
 
 /* Interrupts for I2C */
 ISR( USI_START_vect ){
-	USIDR = 0xFF;	// Clear the send buffer
+	PORTB &= ~1;	// Set pin B0 low
 	i2c_state = rx_address;	// Next we're receiving an address
-	USISR = 1<<USISIF;	// Release the bus and clear the timer
+	while( PINA & 4 );	// Wait for SCL input to fall
+	USIDR = 0xFF;	// Clear the send buffer
+	USISR = 1<<USISIF | 1<<USIOIF;	// Release the bus and clear the timer
+	PORTB |= 1;	// Set pin B0 high again
 }
 
 ISR( USI_OVF_vect ){
+	PORTB &= ~1;	// Set pin B0 low
 	switch( i2c_state ){
 		case rx_address:
 			// Compare to our address
-			if( (USIBR & ADDRESS_MASK) == I2C_ADDRESS ){
-				USIDR = 0x7F;	// Send ACK
+			if( (USIDR & ADDRESS_MASK) == I2C_ADDRESS ){
+				USIDR = 0;	// Send ACK
 				// 1 means read, 0 means write
 				i2c_state = USIBR&1 ? ack_data: ack_command;
 				USISR = 14;	// Set the clock to overflow after the ACK
@@ -44,7 +48,7 @@ ISR( USI_OVF_vect ){
 			}
 			break;
 		case ack_data:
-			if( USIBR & 1 ){
+			if( USIDR & 1 ){
 				// Master NACK'd. Release data line.
 				USIDR = 0xFF;
 				i2c_state = idle;
@@ -67,8 +71,8 @@ ISR( USI_OVF_vect ){
 			break;
 		case rx_command:
 			/* We received a command. Always ACK. */
-			OCR1C = USIBR;	// Copy data to PWM period
-			USIDR = 0xEF;
+			OCR1C = USIDR;	// Copy data to PWM period
+			USIDR = 0;	// Send ACK
 			USISR = 14;
 			i2c_state = ack_command;
 			break;
@@ -79,6 +83,7 @@ ISR( USI_OVF_vect ){
 
 	}
 	USISR |= 1<<USIOIF;	// Release the bus
+	PORTB |= 1;	// Set pin B0 high again
 }
 
 
@@ -93,13 +98,18 @@ void init_i2c( void ){
 	 */
 	USICR = 1<<USISIE | 1<<USIOIE | 1<<USIWM1 | 1<<USIWM0 |
 		1<<USICS1 | 0<<USICS0;
+	USISR = 1<<USISIF | 1<<USIOIF;	// Clear interrupts
+	USIDR = 0xFF;	// Clear buffer
 
 	// Enable outputs for SCL and SDA
 	PORTA |= 1<<0 | 1<<2;
 	DDRA |= 1<<0 | 1<<2;
 	USIPP = 1;	// Use PORTA, not PORTB
+	PORTB |= 1;	// Set bit high for diagnostics
 
 	i2c_state = idle;
+
+	sei();	// Enable interrupts
 }
 
 /* This function does not require the ADC to be initialized beforehand.
@@ -147,7 +157,7 @@ int main( void ) {
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
 
 	/* Set up PWM to show we're receiving commands */
-	TCCR1B = 11;	// Prescaler of 1024
+	TCCR1B = 1;	// Prescaler of 1
 	TCCR1C = 1<<COM1D0;	// Toggle output on compare match
 	TCCR1D = 0;	// Normal mode, use OCR1C as TOP
 	OCR1D = 0;	// Always toggle
