@@ -1,122 +1,14 @@
 #include <stdint.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include "uart.h"
 
 #define F_CPU 1000000UL // 1MHz
 #include <util/delay.h>
 
-/* Global Variables */
-#define ADDRESS_MASK 0xFE	// lsb is R/W
-#define I2C_ADDRESS (0xCA & ADDRESS_MASK)	// Already shifted
-
-volatile enum i2c_state{
-	idle,
-	rx_address,
-	rx_command,
-	ack_command,	// Receive a command next
-	tx_data,
-	ack_data	// Send data next
-}i2c_state;
-
-uint16_t adc_val;
-volatile uint8_t tx_index;
-volatile uint8_t blink_period = 50;
-
-/* Interrupts for I2C */
-ISR( USI_START_vect ){
-	PORTB &= ~1;	// Set pin B0 low
-	i2c_state = rx_address;	// Next we're receiving an address
-	tx_index = 0;
-	while( PINA & 4 );	// Wait for SCL input to fall
-	USIDR = 0xFF;	// Clear the send buffer
-	USISR = 1<<USISIF | 1<<USIOIF;	// Release the bus and clear the timer
-	PORTB |= 1;	// Set pin B0 high again
-}
-
-ISR( USI_OVF_vect ){
-	PORTB &= ~1;	// Set pin B0 low
-	switch( i2c_state ){
-		case rx_address:
-			// Compare to our address
-			if( (USIDR & ADDRESS_MASK) == I2C_ADDRESS ){
-				USIDR = 0;	// Send ACK
-				// 1 means read, 0 means write
-				i2c_state = USIBR&1 ? ack_data: ack_command;
-				USISR = 14;	// Set the clock to overflow after the ACK
-			} else {
-				// It's not our address
-				i2c_state = idle;
-				USIDR = 0xFF;	// Don't send data
-			}
-			break;
-		case ack_data:
-			if( USIDR & 1 ){
-				// Master NACK'd. Release data line.
-				USIDR = 0xFF;
-				i2c_state = idle;
-			} else {
-				// Master ACK'd. Send more data.
-				if( tx_index & 1)
-					USIDR = adc_val;	// Send low byte
-				else
-					USIDR = adc_val>>8;	// send high byte
-				++tx_index;
-				i2c_state = tx_data;
-			}
-			break;
-		case ack_command:
-			/* Get ready to receive data */
-			USIDR = 0xFF;
-			i2c_state = rx_command;
-			break;
-		case tx_data:
-			/* Finished sending data. Wait for an ACK */
-			USIDR = 0xFF;
-			USISR = 14;	// Set to overflow after ack
-			i2c_state = ack_data;
-			break;
-		case rx_command:
-			/* We received a command. Always ACK. */
-			OCR1C = USIDR;	// Copy data to PWM period
-			USIDR = 0;	// Send ACK
-			USISR = 14;
-			i2c_state = ack_command;
-			break;
-		default:
-		case idle:
-			USIDR = 0xFF;	// Clear the send buffer
-			break;
-
-	}
-	USISR |= 1<<USIOIF;	// Release the bus
-	PORTB |= 1;	// Set pin B0 high again
-}
-
 
 /* FUNCTIONS */
 
-void init_i2c( void ){
-	/* Set up USI for i2c slave:
-	 * Enable start-bit interrupt
-	 * Hold line low on start condition
-	 * Hold line low on timer overflow
-	 * Clock output on rising edge
-	 */
-	USICR = 1<<USISIE | 1<<USIOIE | 1<<USIWM1 | 1<<USIWM0 |
-		1<<USICS1 | 0<<USICS0;
-	USISR = 1<<USISIF | 1<<USIOIF;	// Clear interrupts
-	USIDR = 0xFF;	// Clear buffer
-
-	// Enable outputs for SCL and SDA
-	PORTA |= 1<<0 | 1<<2;
-	DDRA |= 1<<0 | 1<<2;
-	USIPP = 1;	// Use PORTA, not PORTB
-	PORTB |= 1;	// Set bit high for diagnostics
-
-	i2c_state = idle;
-
-	sei();	// Enable interrupts
-}
 
 /* This function does not require the ADC to be initialized beforehand.
  * It takes about 75us to run the first time, and 50uS every time after that.
@@ -150,34 +42,57 @@ uint16_t adc_sample10( uint8_t channel ) {
 	return result;
 }
 
+/* This function converts a number into a string
+ * and sends it over UART.
+ */
+ void UART_Send_Num( uint16_t val ){
+	char c = '0';
+	if( val >= 1000 ){
+		val -= 1000;
+		UART_Send_Byte('1');
+	}
+	while( val >= 100 ){
+		val -= 100;
+		++c;
+	}
+	UART_Send_Byte(c);
+	c = '0';
+	while( val >= 10 ){
+		val -= 10;
+		++c;
+	}
+	UART_Send_Byte(c);
+	c = '0' + val;
+	UART_Send_Byte(c);
+	UART_Send_Byte('\r');
+	UART_Send_Byte('\n');
+}
 
 ISR( BADISR_vect ) {
 	//catch anything we accidentally enabled
 }
 
 int main( void ) {
+	uint16_t volts;
+	
+	/* Change clock cal to 7.3MHz */
+	OSCCAL = 23;
+
+	/* Change clock speed to 1MHz */
+	CLKPR = 1<<CLKPCE;
+	CLKPR = 2;	// 1Mhz
 	
 	/* PORT SETUP */
 	DDRA = 0x05;	// SCL and SDA on PORTA are outputs
 	DIDR0 = 0xF0;	// disable digital input buffers on pA5 through pA7
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
 
-	/* Set up PWM to show we're receiving commands */
-	TCCR1B = 1;	// Prescaler of 1
-	TCCR1C = 1<<COM1D0;	// Toggle output on compare match
-	TCCR1D = 0;	// Normal mode, use OCR1C as TOP
-	OCR1D = 0;	// Always toggle
-	OCR1C = 50;	// Good starting point
-
-	init_i2c();
 	
 	
 	while(1) {
-		uint16_t sum = 0;
-		for( uint8_t i = 0; i < 64; ++i ){
-			sum += adc_sample10( 5 );	// Pin A6
-		}
-		adc_val = sum;
+		volts = adc_sample10( 6 ); // pA7
+		UART_Send_Num( volts );
+
 	}
 
 	return 0;
