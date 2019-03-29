@@ -45,24 +45,18 @@ uint16_t adc_sample10( uint8_t channel ) {
 /* This function converts a number into a string
  * and sends it over UART.
  */
+const uint16_t decimal[] = {10000, 1000, 100, 10};
  void UART_Send_Num( uint16_t val ){
 	char c = '0';
-	if( val >= 1000 ){
-		val -= 1000;
-		UART_Send_Byte('1');
+	for( uint8_t i = 0; i < 4; ++i ){
+		while( val >= decimal[i] ){
+			val -= decimal[i];
+			++c;
+		}
+		UART_Send_Byte(c);
+		c = '0';
 	}
-	while( val >= 100 ){
-		val -= 100;
-		++c;
-	}
-	UART_Send_Byte(c);
-	c = '0';
-	while( val >= 10 ){
-		val -= 10;
-		++c;
-	}
-	UART_Send_Byte(c);
-	c = '0' + val;
+	c += val;
 	UART_Send_Byte(c);
 	UART_Send_Byte('\r');
 	UART_Send_Byte('\n');
@@ -90,8 +84,12 @@ int main( void ) {
 	
 	
 	while(1) {
-		volts = adc_sample10( 6 ); // pA7
+		volts = 0;
+		for( int i = 0; i < 64; ++i ){
+			volts += adc_sample10( 5 ); // pA6
+		}
 		UART_Send_Num( volts );
+		_delay_ms(100);
 
 	}
 

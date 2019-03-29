@@ -9,8 +9,8 @@
 
 #include <avr/io.h>
 
-#define UART_BIT 0
-#define UART_PORT _SFR_IO_ADDR(PORTA)
+#define UART_BIT 3
+#define UART_PORT _SFR_IO_ADDR(PORTB)
 
 .global UART_Send_Byte
 UART_Send_Byte:
