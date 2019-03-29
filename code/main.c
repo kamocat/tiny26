@@ -76,11 +76,7 @@ int main( void ) {
 	uint16_t volts;
 	
 	/* Change clock cal to 7.3MHz */
-	OSCCAL = 23;
-
-	/* Change clock speed to 1MHz */
-	CLKPR = 1<<CLKPCE;
-	CLKPR = 2;	// 1Mhz
+	OSCCAL = 135;
 	
 	/* PORT SETUP */
 	DDRA = 0x05;	// SCL and SDA on PORTA are outputs
@@ -91,8 +87,8 @@ int main( void ) {
 	
 	while(1) {
 		volts = adc_sample10( 6 ); // pA7
-		UART_Send_Num( volts );
-
+		UART_Send_Num( 0xaa );
+		_delay_ms(100);
 	}
 
 	return 0;
