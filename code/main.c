@@ -79,7 +79,8 @@ int main( void ) {
 	OSCCAL = 135;
 	
 	/* PORT SETUP */
-	DDRA = 0x05;	// SCL and SDA on PORTA are outputs
+	DDRA = 0x01;	// Only UART Tx is an output
+	PORTA = 2;	// Enable pull-up on UART Rx
 	DIDR0 = 0xF0;	// disable digital input buffers on pA5 through pA7
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
 

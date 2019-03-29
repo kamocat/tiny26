@@ -49,7 +49,7 @@ STOP_BIT:
 ; to hit the middle of the first bit.
 .global UART_Receive_Byte
 RX_WAIT:
-	sbic UART_PIN, UART_RX_BIT
+	sbic UART_PIN, UART_RX_BIT ; Simulate the falling-edge interrupt
 	rjmp RX_WAIT
 	nop
 	nop
