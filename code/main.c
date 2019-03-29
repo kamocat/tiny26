@@ -86,9 +86,7 @@ int main( void ) {
 	
 	
 	while(1) {
-		volts = adc_sample10( 6 ); // pA7
-		UART_Send_Num( 0xaa );
-		_delay_ms(100);
+		UART_Send_Byte(UART_Receive_Byte());
 	}
 
 	return 0;
