@@ -23,6 +23,7 @@ void spi_cmd(uint8_t cmd, uint8_t val){
 }
 
 void init_7seg(void){
+    spi_cmd(15, 0);   // Turn off the display test
     spi_cmd(9, 0xFF); // Control digits not individual segments
     spi_cmd(10, 8);  // Intensity 8. (range is 0-15)
     spi_cmd(11, 7);  // Display all 8 digits
@@ -58,7 +59,7 @@ void write_line(int16_t val, uint8_t decimal, uint8_t line){
     digit[0] = val;
     if(decimal < 3)
         digit[decimal] |= 0x80; // Set decimal point
-    if(line == 1){
+    if(line == 0){
         spi_cmd(1, digit[0]);
         spi_cmd(2, digit[1]);
         spi_cmd(3, digit[2]);
