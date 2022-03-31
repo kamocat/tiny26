@@ -10,38 +10,33 @@ ISR( BADISR_vect ) {
 }
 
 /* Code for the MAX7219 7seg driver */
-void spi_send(uint8_t * buf, uint8_t n){
+void spi_send(uint8_t byte){
     const uint8_t hi = 0x11; // SPI master, set clock high
     const uint8_t lo = 0x13; // SPI master, set clock low and shift data
-    ++n;
-    PORTB &= ~(1<<4); //Set PB4 low
-    while(--n){
-        USIDR = *buf++;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-        USICR = hi;
-        USICR = lo;
-    }
-    PORTB |= (1<<4); //Set PB4 hi
+    USIDR = byte;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
+    USICR = hi;
+    USICR = lo;
 }
 
 void spi_cmd(uint8_t cmd, uint8_t val){
-    uint8_t buf[2];
-    buf[0] = cmd;
-    buf[1] = val;
-    spi_send(buf, 2);
+    PORTB &= ~(1<<4); //Set PB4 low
+    spi_send(cmd);
+    spi_send(val);
+    PORTB |= (1<<4); //Set PB4 hi
 }
 
 void init_7seg(void){
