@@ -46,9 +46,10 @@ int main( void ) {
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
 	
     init_7seg();
+    int i = 0;
 	while(1) {
-      spi_cmd(1, 0xA5);
-	  _delay_ms(1);
+      spi_cmd(1, i++);
+	  _delay_ms(1000);
 	}
 
 	return 0;
