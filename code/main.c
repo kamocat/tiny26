@@ -11,25 +11,16 @@ ISR( BADISR_vect ) {
 
 /* Code for the MAX7219 7seg driver */
 void spi_send(uint8_t byte){
-    const uint8_t hi = 0x11; // SPI master, set clock high
-    const uint8_t lo = 0x13; // SPI master, set clock low and shift data
-    USIDR = byte;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
-    USICR = hi;
-    USICR = lo;
+    for(uint8_t i = 8; i; --i){
+        uint8_t tmp = PORTB & ~0x05;
+        if(byte & 0x80){
+            tmp |= 1;
+        }
+        PORTB = tmp;
+        byte <<= 1;
+        PORTB |= 4;
+    }
+    PORTB &= ~4; // Clock rest low
 }
 
 void spi_cmd(uint8_t cmd, uint8_t val){
