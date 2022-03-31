@@ -8,10 +8,11 @@ compile: elffile
 	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
 
 elffile: objectfile
-	avr-gcc $(CFLAGS) -o main.elf main.o
+	avr-gcc $(CFLAGS) -o main.elf main.o 7seg.o
 
 objectfile:
 	avr-gcc $(CFLAGS) -Os -c main.c -o main.o
+	avr-gcc $(CFLAGS) -Os -c 7seg.c -o 7seg.o
 
 
 clean:
