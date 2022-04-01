@@ -25,7 +25,7 @@ void spi_cmd(uint8_t cmd, uint8_t val){
 void init_7seg(void){
     spi_cmd(15, 0);   // Turn off the display test
     spi_cmd(9, 0xEE); // Control digits not individual segments
-    spi_cmd(10, 1);  // Intensity (range is 0-15)
+    spi_cmd(10, 8);  // Intensity (range is 0-15)
     spi_cmd(11, 7);  // Display all 8 digits
     spi_cmd(12, 1);  // Enable the display
 }
@@ -53,6 +53,7 @@ void write_line_internal(uint8_t * digit, uint8_t line){
     }
 }
 
+
 void inc_mag(struct mag * n, int8_t speed){
     switch(speed){
         case 1:
@@ -72,6 +73,12 @@ void inc_mag(struct mag * n, int8_t speed){
             if(n->hunds >= 10){
                 n->hunds = 1;
                 n->exponent++;
+                if(n->exponent > 0){
+                    n->exponent = 0;
+                    n->hunds = 9;
+                    n->tens = 9;
+                    n->ones = 9;
+                }
             }
             break;
         case -1:
@@ -88,9 +95,15 @@ void inc_mag(struct mag * n, int8_t speed){
             /* Else falls through */
         case -3:
             n->hunds--;
-            if(n->hunds >= 10){
+            if(n->hunds == 0){
                 n->hunds = n->tens;
                 n->exponent--;
+                if(n->exponent < -7){
+                    n->exponent = -7;
+                    n->hunds = 1;
+                    n->tens = 0;
+                    n->ones = 0;
+                }
             }
             break;
         default:
@@ -123,7 +136,6 @@ void write_mag(const struct mag * n, uint8_t line){
     digit[3-mag] |= 0x80; // Add the decimal
     write_line_internal(digit, line);
 }
-    
 
 void write_line(int16_t val, uint8_t decimal, uint8_t line){
     uint8_t digit[4];
