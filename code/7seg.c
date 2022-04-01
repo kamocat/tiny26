@@ -106,7 +106,7 @@ void write_mag(const struct mag * n, uint8_t line){
 
     int8_t mag = n->exponent;
     if( mag < -6 ){
-        mag = 1;
+        mag = 2;
         digit[0] = 0x15;  // letter n for nano
     } else if( mag < -3 ){
         mag += 6;
@@ -117,10 +117,10 @@ void write_mag(const struct mag * n, uint8_t line){
     } else if( mag < 3){
         digit[0] = 0; // blank
     } else{
-        mag = 3;
+        mag = 0;
         digit[0] = 0x57; // letter k for kilo
     }
-    digit[mag] |= 0x80; // Add the decimal
+    digit[3-mag] |= 0x80; // Add the decimal
     write_line_internal(digit, line);
 }
     
