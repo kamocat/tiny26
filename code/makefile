@@ -1,19 +1,25 @@
 # This is my first makefile. Hopefully it works well.
 
-CFLAGS=-g -mmcu=attiny861 --std=c99 -Wall
+MCU=attiny861
+CFLAGS=-g -mmcu=$(MCU) --std=c99 -Wall
 
 all: compile run
 
 compile: elffile
 	avr-objcopy -j .text -j .data -O ihex main.elf main.hex
+	avr-size -C --mcu=$(MCU) main.elf
 
 elffile: objectfile
-	avr-gcc $(CFLAGS) -o main.elf main.o 7seg.o
+	avr-gcc $(CFLAGS) -o main.elf main.o 7seg.o pwm.o
 
 objectfile:
 	avr-gcc $(CFLAGS) -Os -c main.c -o main.o
 	avr-gcc $(CFLAGS) -Os -c 7seg.c -o 7seg.o
+	avr-gcc $(CFLAGS) -Os -c pwm.c -o pwm.o
 
+inspect:
+	avr-gcc $(CFLAGS) -Os -S pwm.c -o pwm.asm
+	vim pwm.asm
 
 clean:
 	rm -f *.hex
