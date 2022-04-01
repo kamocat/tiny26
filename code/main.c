@@ -19,7 +19,7 @@ void ms_reset(void){
 
 int main( void ) {
     /* Variable declaration */
-    uint8_t line = 0;
+    uint8_t line = 1;
     uint8_t enc = 0;
     int8_t speed = 0;
     struct mag pulse = {.hunds=1,.exponent=-4};
@@ -38,7 +38,7 @@ int main( void ) {
 
     while(1) {
         uint16_t elapsed = ms_elapsed();
-        if( elapsed < 80 )
+        if( elapsed < 50 )
             speed = 3;
         else if( elapsed < 150 )
             speed = 2;
