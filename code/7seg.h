@@ -1,13 +1,6 @@
 #include <stdint.h>
+#include "decimal.h"
 
-/* A structure to hold each digit
- */
-struct mag{
-    unsigned int hunds:4;
-    unsigned int tens:4;
-    unsigned int ones:4;
-    int8_t exponent; // Had issues with specifying the field width
-};
 
 // Initializes the display
 void init_7seg(void);

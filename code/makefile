@@ -10,12 +10,13 @@ compile: elffile
 	avr-size -C --mcu=$(MCU) main.elf
 
 elffile: objectfile
-	avr-gcc $(CFLAGS) -o main.elf main.o 7seg.o pwm.o
+	avr-gcc $(CFLAGS) -o main.elf main.o 7seg.o pwm.o prescaler.o
 
 objectfile:
 	avr-gcc $(CFLAGS) -Os -c main.c -o main.o
 	avr-gcc $(CFLAGS) -Os -c 7seg.c -o 7seg.o
 	avr-gcc $(CFLAGS) -Os -c pwm.c -o pwm.o
+	avr-gcc $(CFLAGS) -Os -c decimal.c -o prescaler.o
 
 inspect:
 	avr-gcc $(CFLAGS) -Os -S pwm.c -o pwm.asm

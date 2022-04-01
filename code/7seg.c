@@ -54,68 +54,6 @@ void write_line_internal(uint8_t * digit, uint8_t line){
 }
 
 
-void inc_mag(struct mag * n, int8_t speed){
-    switch(speed){
-        case 1:
-            n->ones++;
-            if(n->ones < 10)
-                break;
-            /* Else falls through */
-        case 2:
-            n->ones = 0;
-            n->tens++;
-            if(n->tens< 10)
-                break;
-            /* Else falls through */
-        case 3:
-            n->tens = 0;
-            n->hunds++;
-            if(n->hunds >= 10){
-                n->hunds = 1;
-                n->exponent++;
-                if(n->exponent > 0){
-                    n->exponent = 0;
-                    n->hunds = 9;
-                    n->tens = 9;
-                    n->ones = 9;
-                }
-            }
-            break;
-        case -1:
-            n->ones--;
-            if(n->ones < 10)
-                break;
-            n->ones = 9;
-            /* Else falls through */
-        case -2:
-            n->tens--;
-            if(n->tens< 10)
-                break;
-            n->tens = 9;
-            /* Else falls through */
-        case -3:
-            n->hunds--;
-            if(n->hunds == 0){
-                if(n->tens == 0){
-                    n->hunds = 9;
-                } else {
-                    n->hunds = n->tens;
-                    n->tens = n->ones;
-                }
-                n->exponent--;
-                if(n->exponent < -7){
-                    n->exponent = -7;
-                    n->hunds = 1;
-                    n->tens = 0;
-                    n->ones = 0;
-                }
-            }
-            break;
-        default:
-            break;
-    }
-}
-
 void write_mag(const struct mag * n, uint8_t line){
     uint8_t digit[4];
     digit[3] = n->hunds;
@@ -125,13 +63,13 @@ void write_mag(const struct mag * n, uint8_t line){
     int8_t mag = n->exponent;
     if( mag < -6 ){
         mag = 2;
-        digit[0] = 0x15;  // letter n for nano
+        digit[0] = 0x49;  // 3 bars for for nano
     } else if( mag < -3 ){
         mag += 6;
-        digit[0] = 0x1C; // letter mu for micro
+        digit[0] = 0x09; // two bars for micro
     } else if( mag < 0){
         mag += 3;
-        digit[0] = 0x55; // letter m for mili
+        digit[0] = 0x08; // one bar for milli
     } else if( mag < 3){
         digit[0] = 0; // blank
     } else{
