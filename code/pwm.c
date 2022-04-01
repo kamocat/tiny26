@@ -18,12 +18,12 @@ int8_t calc_prescaler(const struct mag * n, uint16_t * occr){
         case 1:
             // I divided each multiplier by 4 to prevent overflow
             x = n->ones*25 + n->tens*250 + n->hunds*2500;
-            p -=12;
+            p -=8;
             break;
         case 0:
             // I divided each multiplier by 2 because it was cool
             x = n->ones*5 + n->tens*50 + n->hunds*500;
-            p -= 11;
+            p -= 9;
             break;
         case 2:
         default:
@@ -45,7 +45,7 @@ void update_pwm(const struct mag * pulse, const struct mag * period){
     uint16_t v1, v2;
     int8_t p1 = poffset + calc_prescaler(pulse, &v1);
     int8_t p2 = poffset + calc_prescaler(period, &v2);
-    v1 = 300;
+    v1 = 10;
 
     //If the pulse is less than the minimum, correct it.
     while(p2 < 1){
@@ -61,7 +61,7 @@ void update_pwm(const struct mag * pulse, const struct mag * period){
         ++p1;
     }
 
-    TCCR1B = p2; // Set prescaler
+    TCCR1B = 0x0F & p2; // Set prescaler
     TC1H = v2>>8;// Set period
     OCR1C = v2;
     TC1H = v1>>8;// Set pulse width
