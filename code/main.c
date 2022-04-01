@@ -35,40 +35,40 @@ int main( void ) {
     init_7seg();
     uint8_t line = 0;
     uint8_t enc = 0;
-    int16_t num[2];
-    num[0] = 100;
-    num[1] = 200;
+    int8_t speed = 0;
+    struct mag pulse = {.hunds=1,.exponent=-4};
+    struct mag period = {.hunds=1,.exponent=-3};
     ms_reset();
 	while(1) {
       uint16_t elapsed = ms_elapsed();
+      if( elapsed < 80 )
+          speed = 3;
+      else if( elapsed < 150 )
+          speed = 2;
+      else
+          speed = 1;
+
       enc <<= 4;
       enc |= PINA & 7; // Only look at pA0-2
+
       if(enc == 0x45){
-          if(elapsed < 80)
-              num[line] -= 100;
-          if(elapsed < 150)
-              num[line] -= 10;
-          else
-              --num[line];
+          inc_mag(line?&period:&pulse, -speed);
           ms_reset();
       } else if(enc == 0x54){
-          if(elapsed < 80)
-              num[line] += 100;
-          if( elapsed < 150)
-              num[line] += 10;
-          else
-              ++num[line];
+          inc_mag(line?&period:&pulse, speed);
           ms_reset();
       } else if(enc == 0x73){
           line ^= 1;
       }
-      write_line(num[0], 3, 0);
-      write_line(num[1], 3, 1);
-      TC1H = num[0]>>8;
-      OCR1D = num[0];
-      TC1H = num[1]>>8;
-      OCR1C = num[1];
+      write_mag(&period, 0);
+      write_mag(&pulse, 1);
 
+      /* TODO: Resolve magnitude with prescaler
+      TC1H = pulse>>8;
+      OCR1D = pulse;
+      TC1H = period>>8;
+      OCR1C = period;
+      */
 	}
 
 	return 0;

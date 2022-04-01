@@ -24,8 +24,8 @@ void spi_cmd(uint8_t cmd, uint8_t val){
 
 void init_7seg(void){
     spi_cmd(15, 0);   // Turn off the display test
-    spi_cmd(9, 0xFF); // Control digits not individual segments
-    spi_cmd(10, 8);  // Intensity 8. (range is 0-15)
+    spi_cmd(9, 0xEE); // Control digits not individual segments
+    spi_cmd(10, 1);  // Intensity (range is 0-15)
     spi_cmd(11, 7);  // Display all 8 digits
     spi_cmd(12, 1);  // Enable the display
 }
@@ -39,10 +39,93 @@ uint8_t div_remainder(int16_t * val, int16_t increment){
     return digit;
 }
 
+void write_line_internal(uint8_t * digit, uint8_t line){
+    if(line == 0){
+        spi_cmd(1, digit[0]);
+        spi_cmd(2, digit[1]);
+        spi_cmd(3, digit[2]);
+        spi_cmd(4, digit[3]);
+    } else {
+        spi_cmd(5, digit[0]);
+        spi_cmd(6, digit[1]);
+        spi_cmd(7, digit[2]);
+        spi_cmd(8, digit[3]);
+    }
+}
+
+void inc_mag(struct mag * n, int8_t speed){
+    switch(speed){
+        case 1:
+            n->ones++;
+            if(n->ones < 10)
+                break;
+            /* Else falls through */
+        case 2:
+            n->ones = 0;
+            n->tens++;
+            if(n->tens< 10)
+                break;
+            /* Else falls through */
+        case 3:
+            n->tens = 0;
+            n->hunds++;
+            if(n->hunds >= 10){
+                n->hunds = 1;
+                n->exponent++;
+            }
+            break;
+        case -1:
+            n->ones--;
+            if(n->ones < 10)
+                break;
+            n->ones = 9;
+            /* Else falls through */
+        case -2:
+            n->tens--;
+            if(n->tens< 10)
+                break;
+            n->tens = 9;
+            /* Else falls through */
+        case -3:
+            n->hunds--;
+            if(n->hunds >= 10){
+                n->hunds = n->tens;
+                n->exponent--;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+void write_mag(const struct mag * n, uint8_t line){
+    uint8_t digit[4];
+    digit[3] = n->hunds;
+    digit[2] = n->tens;
+    digit[1] = n->ones;
+
+    int8_t mag = n->exponent;
+    if( mag < -6 ){
+        mag = 1;
+        digit[0] = 0x15;  // letter n for nano
+    } else if( mag < -3 ){
+        mag += 6;
+        digit[0] = 0x1C; // letter mu for micro
+    } else if( mag < 0){
+        mag += 3;
+        digit[0] = 0x55; // letter m for mili
+    } else if( mag < 3){
+        digit[0] = 0; // blank
+    } else{
+        mag = 3;
+        digit[0] = 0x57; // letter k for kilo
+    }
+    digit[mag] |= 0x80; // Add the decimal
+    write_line_internal(digit, line);
+}
+    
+
 void write_line(int16_t val, uint8_t decimal, uint8_t line){
-    /* Due to space constraint, the range is -999 to 9999.
-     * The decimal can be placed at any of the four positions,
-     * but default is to not show the decimal */
     uint8_t digit[4];
     if(val > 9999 )
         val = 9999;
@@ -59,15 +142,5 @@ void write_line(int16_t val, uint8_t decimal, uint8_t line){
     digit[0] = val;
     if(decimal <= 3)
         digit[decimal] |= 0x80; // Set decimal point
-    if(line == 0){
-        spi_cmd(1, digit[0]);
-        spi_cmd(2, digit[1]);
-        spi_cmd(3, digit[2]);
-        spi_cmd(4, digit[3]);
-    } else {
-        spi_cmd(5, digit[0]);
-        spi_cmd(6, digit[1]);
-        spi_cmd(7, digit[2]);
-        spi_cmd(8, digit[3]);
-    }
+    write_line_internal(digit, line);
 }
