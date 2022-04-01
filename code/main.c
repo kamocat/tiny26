@@ -18,22 +18,31 @@ int main( void ) {
     PORTA = 0x07;   // Enable pull-ups on pA0-2
 	DIDR0 = 0xF0;	// disable digital input buffers on pA5 through pA7
 	DDRB = 0x7F;	// set all PORTB as outputs, except RESET.
+    TCCR1B = 1;     // Start PWM clock at full speed
+    TCCR1C = 0x09;  // Enable PWM on D
+    TCCR1D = 1;     //Phase/frequency correct PWM
+    TCNT1 = 255;
+    OCR1D = 60;
 	
     init_7seg();
-    int i = 0;
-
     uint8_t line = 0;
-    uint8_t enc;
+    uint8_t enc = 0;
+    int16_t num[2];
+    num[0] = 100;
+    num[1] = 1000;
 	while(1) {
       enc <<= 4;
       enc |= PINA & 7; // Only look at pA0-2
       if(enc == 0x45)
-          --i;
+          --num[line];
       if(enc == 0x54)
-          ++i;
+          ++num[line];
       if(enc == 0x73)
-          line = !line;
-      write_line(i, 1, line);
+          line ^= 1;
+      write_line(num[0], 3, 0);
+      write_line(num[1], 3, 1);
+      OCR1D = num[0];
+
 	}
 
 	return 0;

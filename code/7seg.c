@@ -57,7 +57,7 @@ void write_line(int16_t val, uint8_t decimal, uint8_t line){
     digit[2] = div_remainder(&val, 100);
     digit[1] = div_remainder(&val, 10);
     digit[0] = val;
-    if(decimal < 3)
+    if(decimal <= 3)
         digit[decimal] |= 0x80; // Set decimal point
     if(line == 0){
         spi_cmd(1, digit[0]);
