@@ -96,7 +96,12 @@ void inc_mag(struct mag * n, int8_t speed){
         case -3:
             n->hunds--;
             if(n->hunds == 0){
-                n->hunds = n->tens;
+                if(n->tens == 0){
+                    n->hunds = 9;
+                } else {
+                    n->hunds = n->tens;
+                    n->tens = n->ones;
+                }
                 n->exponent--;
                 if(n->exponent < -7){
                     n->exponent = -7;
