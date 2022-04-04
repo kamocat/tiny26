@@ -9,6 +9,7 @@ void init_pwm(void){
     while(~PLLCSR & 1);
     PLLCSR |= 0x04; // Use 64Mhz clock as timing source
     TCCR1D = 0;     // Fast PWM
+    DT1 = 0x11;     // 100ns delay for turn-on and turn-off
 }
 
 void update_pwm(const struct mag * pulse, const struct mag * period){
@@ -24,17 +25,20 @@ void update_pwm(const struct mag * pulse, const struct mag * period){
     }
     //If the pulse is longer than the period, trim it to max
     if(p1 > p2)
-        v1 = 1023;
+        v1 = v2 - 1;
     //If the pulse is less than half the period, reduce pulse resolution
     while(p1 < p2){
         v1 /= 2;
         ++p1;
     }
+    // Pulses less than 2 clock cycles don't appear at all
+    if(v1 < 2)
+        v1 = 2;
 
     TCCR1B = 0x0F & p2; // Set prescaler
     TC1H = v2>>8;// Set period
     OCR1C = v2;
     TC1H = v1>>8;// Set pulse width
     OCR1D = v1;
-    TCCR1C = 0x09;  // Enable PWM on D
+    TCCR1C = 0x05;  // Enable PWM on D (also enable inverted output)
 }

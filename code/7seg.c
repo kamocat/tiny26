@@ -16,10 +16,10 @@ void spi_send(uint8_t byte){
 }
 
 void spi_cmd(uint8_t cmd, uint8_t val){
-    PORTB &= ~(1<<4); //Set PB4 low
+    PORTB &= ~(1<<1); //Set Slave Select low
     spi_send(cmd);
     spi_send(val);
-    PORTB |= (1<<4); //Set PB4 hi
+    PORTB |= (1<<1); //Set Slave Select hi
 }
 
 void init_7seg(void){
