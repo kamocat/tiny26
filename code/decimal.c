@@ -69,34 +69,38 @@ int8_t calc_prescaler(const struct mag * n, uint16_t * occr){
     // Approximating 10^3 with 2^10
     int8_t exponent = n->exponent;
     int8_t p = 0;
-    /*
-    while(exponent < 0){
-        p += 10;
-        exponent += 3;
-    }
-    */
     p = exponent/3*10;
     exponent %= 3;
+    if(exponent < 0){
+        p -= 10;
+        exponent += 3;
+    }
     switch(exponent){
         case 1:
             // I divided each multiplier by 4 to prevent overflow
             x = n->ones*25 + n->tens*250 + n->hunds*2500;
-            p +=2;
+            p -=8;
             break;
         case 0:
             // I divided each multiplier by 2 because it was cool
             x = n->ones*5 + n->tens*50 + n->hunds*500;
-            p +=1;
+            p -=9;
             break;
         case 2:
-        default:
             x = n->ones + n->tens*10 + n->hunds*100;
+            break;
+        default:
+            x = 1;
             break;
     }
     // Reduce to only 10 bits wide
     while(x > 1023){
         x = x/2;
         ++p;
+    }
+    while(x < 512){
+        x *= 2;
+        --p;
     }
     *occr = x;
     return p;
