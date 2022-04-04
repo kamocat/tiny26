@@ -1,15 +1,18 @@
 #include "decimal.h" // for struct mag
+#include <util/delay.h>
 #include <avr/io.h>
 
 
 void init_pwm(void){
-    TCCR1B = 1;     // Start PWM clock at full speed
-    TCCR1C = 0x09;  // Enable PWM on D
+    PLLCSR = 0x02;  // Enable 64Mhz PLL
+    _delay_us(100); // Wait for PLL to stabilize
+    while(~PLLCSR & 1);
+    PLLCSR |= 0x04; // Use 64Mhz clock as timing source
     TCCR1D = 0;     // Fast PWM
 }
 
 void update_pwm(const struct mag * pulse, const struct mag * period){
-    const int8_t poffset = 21; //Setting the prescaler to 1 puts us at 1Mhz
+    const int8_t poffset = 27; //Setting the prescaler to 1 puts us at 64hz
     uint16_t v1, v2;
     int8_t p1 = poffset + calc_prescaler(pulse, &v1);
     int8_t p2 = poffset + calc_prescaler(period, &v2);
@@ -33,4 +36,5 @@ void update_pwm(const struct mag * pulse, const struct mag * period){
     OCR1C = v2;
     TC1H = v1>>8;// Set pulse width
     OCR1D = v1;
+    TCCR1C = 0x09;  // Enable PWM on D
 }
