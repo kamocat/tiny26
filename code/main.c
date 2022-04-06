@@ -22,8 +22,8 @@ int main( void ) {
     uint8_t line = 1;
     uint8_t enc = 0;
     int8_t speed = 0;
-    struct mag pulse = {.hunds=1,.exponent=-4};
     struct mag period = {.hunds=1,.exponent=-3};
+    uint8_t duty = 50; // Percent
 
     /* PORT SETUP */
     DDRA = 0x00;	// All of Port A is inputs
@@ -49,19 +49,25 @@ int main( void ) {
         enc |= PINA & 7; // Only look at pA0-2
 
         if(enc == 0x45){
-            inc_mag(line?&period:&pulse, -speed);
+            if(line){
+              inc_mag(&period, -speed);
+            } else if(duty > 0) {
+                --duty;
+            }
             ms_reset();
         } else if(enc == 0x54){
-            inc_mag(line?&period:&pulse, speed);
+            if(line){
+                inc_mag(&period, speed);
+            } else if(duty < 100) {
+                ++duty;
+            }
             ms_reset();
         } else if(enc == 0x73){
             line ^= 1;
         }
-        write_mag(&pulse, 0);
+        write_short(duty, 1);
         write_mag(&period, 1);
-        update_pwm(&pulse, &period);
-
+        update_duty(duty, &period);
     }
-
     return 0;
 }

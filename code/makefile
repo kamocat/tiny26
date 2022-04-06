@@ -1,7 +1,7 @@
 # This is my first makefile. Hopefully it works well.
 
 MCU=attiny861
-CFLAGS=-g -mmcu=$(MCU) --std=c99 -Wall
+CFLAGS=-g -mmcu=$(MCU) --std=c99 -Wall -DF_CPU=1000000UL
 
 all: compile run
 
@@ -19,8 +19,8 @@ objectfile:
 	avr-gcc $(CFLAGS) -Os -c decimal.c -o decimal.o
 
 inspect:
-	avr-gcc $(CFLAGS) -Os -S pwm.c -o pwm.asm
-	vim pwm.asm
+	avr-gcc $(CFLAGS) -Os -S 7seg.c -o inspect.asm
+	vim inspect.asm
 
 test:
 	gcc decimal.c test_decimal.c -o run_test.out

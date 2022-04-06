@@ -21,3 +21,4 @@ void write_mag(const struct mag * n, uint8_t line);
  * Step size is determined by the speed
  */
 void inc_mag(struct mag * n, int8_t speed);
+void write_short(uint8_t val, uint8_t pos);

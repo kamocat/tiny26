@@ -24,7 +24,7 @@ void spi_cmd(uint8_t cmd, uint8_t val){
 
 void init_7seg(void){
     spi_cmd(15, 0);   // Turn off the display test
-    spi_cmd(9, 0xEE); // Control digits not individual segments
+    spi_cmd(9, 0xEF); // Control digits not individual segments
     spi_cmd(10, 8);  // Intensity (range is 0-15)
     spi_cmd(11, 7);  // Display all 8 digits
     spi_cmd(12, 1);  // Enable the display
@@ -79,6 +79,25 @@ void write_mag(const struct mag * n, uint8_t line){
     digit[3-mag] |= 0x80; // Add the decimal
     write_line_internal(digit, line);
 }
+
+void write_short(uint8_t val, uint8_t pos){
+    if(val >= 200){
+        spi_cmd(pos+2, 2);
+        val -= 200;
+    } else if(val >= 100){
+        spi_cmd(pos+2, 1);
+        val -= 100;
+    } else {
+        spi_cmd(pos+2, 15); // blank
+    }
+    spi_cmd(pos+1, val/10);
+    spi_cmd(pos, val%10);
+}
+
+
+
+
+
 
 void write_line(int16_t val, uint8_t decimal, uint8_t line){
     uint8_t digit[4];
