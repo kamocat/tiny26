@@ -9,7 +9,7 @@ void init_pwm(void){
     while(~PLLCSR & 1);
     PLLCSR |= 0x04; // Use 64Mhz clock as timing source
     TCCR1D = 0;     // Fast PWM
-    DT1 = 0x11;     // 100ns delay for turn-on and turn-off
+    DT1 = 0x00;     // No dead-time
 }
 
 void update_duty(uint8_t duty, const struct mag * period){
@@ -63,7 +63,7 @@ void update_pwm(const struct mag * pulse, const struct mag * period){
     if(v1 < 2)
         v1 = 2;
 
-    TCCR1B = 0x0F & p2; // Set prescaler
+    TCCR1B = 0x80 | (0x0F & p2); // Set prescaler. PWM is inverted, dead-time is x1
     TC1H = v2>>8;// Set period
     OCR1C = v2;
     TC1H = v1>>8;// Set pulse width
